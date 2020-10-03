@@ -72,6 +72,16 @@ var convertData = function(buffer) {
 	var model = models[parseInt("0x" + hex[0]  + hex[1]  + hex[2]  + hex[3])]
 	var voltageDivider = model === "UM25C"? 1000 : 100
 	var currentDivider = model === "UM25C"? 10000 : 1000
+	var checksum = 0;
+	if (model === "UM24C") {
+		var positions = [ 1, 3, 7, 9, 15, 17, 19, 23, 31, 39, 41, 45, 49, 53, 55, 57, 59, 63, 67, 69, 73, 79, 83, 89, 97, 99, 109, 111, 113, 119, 121, 127 ]
+		for (i in positions) {
+			checksum ^= buffer[i]
+		}
+	}
+	else {
+		checksum = 0xFFF1
+	}
 	/* Data from device
 	 *      4    8    12   16   20   24   28   32   36   40   44   48   52   56   60
 	 * 0d4c 01f5 008e 0000 02c7 001b 0051 0001 0000 0000 0000 0000 0000 0007 0000 0027 
@@ -141,7 +151,11 @@ var convertData = function(buffer) {
 		// Currently selected screen
 		screen     : parseInt("0x" + hex[252] + hex[253] + hex[254] + hex[255]),
 		// No idea what what this value could be, is higher when a load is present
-		unknown0   : parseInt("0x" + hex[256] + hex[257] + hex[258] + hex[259])
+		checksum   : parseInt("0x" + hex[256] + hex[257] + hex[258] + hex[259])
+	}
+	if (checksum !== data.checksum) {
+		console.warn("checksum invalid " + data.checksum);
+		return;
 	}
 
 	// Fill groups with data
