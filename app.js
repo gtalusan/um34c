@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 
 var stdin = process.stdin;
-stdin.setRawMode(true);
-stdin.resume();
-stdin.setEncoding("utf8");
-
 var program = require("commander");
 program
 	.version("1.1.0")
@@ -68,6 +64,14 @@ var convertData = function(buffer) {
 		7: "DCP1.5A",
 		8: "SAMSUNG"
 	}
+	var models = {
+		0x0963: "UM24C",
+		0x09c9: "UM25C",
+		0x0d4c: "UM34C"
+	}
+	var model = models[parseInt("0x" + hex[0]  + hex[1]  + hex[2]  + hex[3])]
+	var voltageDivider = model === "UM25C"? 1000 : 100
+	var currentDivider = model === "UM25C"? 10000 : 1000
 	/* Data from device
 	 *      4    8    12   16   20   24   28   32   36   40   44   48   52   56   60
 	 * 0d4c 01f5 008e 0000 02c7 001b 0051 0001 0000 0000 0000 0000 0000 0007 0000 0027 
@@ -86,11 +90,12 @@ var convertData = function(buffer) {
 	 * d+__ d-__ mode recA_____ recW_____ recT recTime__ con? tout brig ohm______ scre
 	 */
 	data = {
+		model      : model,
 		timestamp  : new Date().getTime(),
 		// Voltage in "V"
-		voltage    : parseInt("0x" + hex[4]  + hex[5]  + hex[6]  + hex[7])  / 100,
+		voltage    : parseInt("0x" + hex[4]  + hex[5]  + hex[6]  + hex[7])  / voltageDivider,
 		// Current in "A"
-		current    : parseInt("0x" + hex[8]  + hex[9]  + hex[10] + hex[11]) / 1000,
+		current    : parseInt("0x" + hex[8]  + hex[9]  + hex[10] + hex[11]) / currentDivider,
 		// Power in "W"
 		power      : parseInt("0x" + hex[12] + hex[13] + hex[14] + hex[15] + hex[16] + hex[17] + hex[18] + hex[19]) / 1000,
 		// Temperature
@@ -132,7 +137,7 @@ var convertData = function(buffer) {
 			brightness: parseInt("0x" + hex[240] + hex[241] + hex[242] + hex[243])
 		},
 		// Resistence in "Ohm"
-		resistence : parseInt("0x" + hex[244] + hex[245] + hex[246] + hex[247] + hex[248] + hex[249] + hex[250] + hex[251]) / 10,
+		resistance : parseInt("0x" + hex[244] + hex[245] + hex[246] + hex[247] + hex[248] + hex[249] + hex[250] + hex[251]) / 10,
 		// Currently selected screen
 		screen     : parseInt("0x" + hex[252] + hex[253] + hex[254] + hex[255]),
 		// No idea what what this value could be, is higher when a load is present
@@ -286,12 +291,22 @@ var connect = function(address, name) {
 if(program.address) {
 	connect(program.address, "");
 } else {
-	console.error("Searching for UM34C device...");
+	console.error("Searching for UMxxC device...");
 	device.on("found", function found(address, name) {
+		if(name === "UM24C") {
+			console.error("Found UM24C device with address: " + address);
+			connect(address, name);
+		}
+		if(name === "UM25C") {
+			console.error("Found UM25C device with address: " + address);
+			connect(address, name);
+		}
 		if(name === "UM34C") {
 			console.error("Found UM34C device with address: " + address);
 			connect(address, name);
 		}
+	}).on("finished", function() {
+		console.log("finished scanning");
 	}).scan();
 }
 
